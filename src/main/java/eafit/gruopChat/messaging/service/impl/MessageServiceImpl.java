@@ -8,6 +8,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import eafit.gruopChat.grpc.UserGrpcClient;
+import eafit.gruopChat.grpc.UserResponse;
 import eafit.gruopChat.group.exception.GroupNotFoundException;
 import eafit.gruopChat.group.exception.NotMemberException;
 import eafit.gruopChat.group.model.Channel;
@@ -23,10 +25,6 @@ import eafit.gruopChat.messaging.repository.MessageRepository;
 import eafit.gruopChat.messaging.service.MessageService;
 import eafit.gruopChat.shared.enums.MessageType;
 import eafit.gruopChat.user.exception.UserNotFoundException;
-import eafit.gruopChat.user.model.User;
-import eafit.gruopChat.user.repository.UserRepository;
-
-
 
 @Service
 @Transactional
@@ -34,19 +32,19 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessageEventPublisher publisher;
     private final MessageRepository messageRepository;
-    private final UserRepository userRepository;
+    private final UserGrpcClient userGrpcClient;
     private final GroupRepository groupRepository;
     private final ChannelRepository channelRepository;
     private final GroupMemberRepository memberRepository;
 
     public MessageServiceImpl(MessageRepository messageRepository,
-                               UserRepository userRepository,
+                               UserGrpcClient userGrpcClient,
                                GroupRepository groupRepository,
                                ChannelRepository channelRepository,
                                GroupMemberRepository memberRepository,
                                MessageEventPublisher publisher) {
         this.messageRepository = messageRepository;
-        this.userRepository    = userRepository;
+        this.userGrpcClient    = userGrpcClient;
         this.groupRepository   = groupRepository;
         this.channelRepository = channelRepository;
         this.memberRepository  = memberRepository;
@@ -55,7 +53,7 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public MessageResponseDTO sendMessage(Long senderId, MessageRequestDTO request) {
-        User sender = userRepository.findById(senderId)
+        UserResponse sender = userGrpcClient.getUserById(String.valueOf(senderId))
                 .orElseThrow(() -> new UserNotFoundException(senderId));
 
         Group group = groupRepository.findById(request.groupId())
@@ -83,7 +81,8 @@ public class MessageServiceImpl implements MessageService {
         }
 
         Message message = new Message();
-        message.setSender(sender);
+        message.setSenderId(senderId);          // ← ya no setea User, solo el ID
+        message.setSenderName(sender.getUsername());
         message.setGroup(group);
         message.setChannel(channel);
         message.setType(request.type());
@@ -92,11 +91,8 @@ public class MessageServiceImpl implements MessageService {
         message.setFileName(request.fileName());
 
         MessageResponseDTO response = toDTO(messageRepository.save(message));
-
         publisher.publish(response);
-
         return response;
-
     }
 
     @Override
@@ -119,11 +115,9 @@ public class MessageServiceImpl implements MessageService {
     public void deleteMessage(Long messageId, Long requestingUserId) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new RuntimeException("Mensaje no encontrado: " + messageId));
-
-        if (!message.getSender().getUserId().equals(requestingUserId)) {
+        if (!message.getSenderId().equals(requestingUserId)) {
             throw new IllegalArgumentException("Solo el autor puede eliminar el mensaje");
         }
-
         message.setDeleted(true);
     }
 
@@ -131,17 +125,11 @@ public class MessageServiceImpl implements MessageService {
     public void editMessage(Long messageId, Long requestingUserId, String newContent) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new RuntimeException("Mensaje no encontrado: " + messageId));
-
-        if (!message.getSender().getUserId().equals(requestingUserId)) {
+        if (!message.getSenderId().equals(requestingUserId)) {
             throw new IllegalArgumentException("Solo el autor puede editar el mensaje");
         }
-        if (message.isDeleted()) {
-            throw new IllegalArgumentException("No se puede editar un mensaje eliminado");
-        }
-        if (newContent == null || newContent.isBlank()) {
-            throw new IllegalArgumentException("El contenido no puede estar vacío");
-        }
-
+        if (message.isDeleted()) throw new IllegalArgumentException("No se puede editar un mensaje eliminado");
+        if (newContent == null || newContent.isBlank()) throw new IllegalArgumentException("El contenido no puede estar vacío");
         message.setContent(newContent);
         message.setEditedAt(LocalDateTime.now());
     }
@@ -153,7 +141,6 @@ public class MessageServiceImpl implements MessageService {
                 .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public List<MessageResponseDTO> getGroupFiles(Long groupId) {
@@ -161,14 +148,13 @@ public class MessageServiceImpl implements MessageService {
                 .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    // ===== Mapper =====
     private MessageResponseDTO toDTO(Message m) {
         return new MessageResponseDTO(
                 m.getMessageId(),
                 m.getGroup().getGroupId(),
                 m.getChannel() != null ? m.getChannel().getChannelId() : null,
-                m.getSender().getUserId(),
-                m.getSender().getName(),
+                m.getSenderId(),
+                m.getSenderName(),
                 m.getType(),
                 m.isDeleted() ? null : m.getContent(),
                 m.isDeleted() ? null : m.getFileUrl(),

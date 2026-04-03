@@ -16,16 +16,16 @@ public interface MessageReadRepository extends JpaRepository<MessageRead, Long> 
 
     @Query("SELECT m.messageId FROM Message m WHERE m.channel.channelId = :channelId " +
            "AND m.deleted = false " +
-           "AND m.sender.userId != :userId " +
-           "AND NOT EXISTS (SELECT mr FROM MessageRead mr WHERE mr.message = m AND mr.user.userId = :userId)")
+           "AND m.senderId != :userId " +
+           "AND NOT EXISTS (SELECT mr FROM MessageRead mr WHERE mr.message = m AND mr.userId = :userId)")
     List<Long> findUnreadMessageIdsByChannelAndUser(
             @Param("channelId") Long channelId, @Param("userId") Long userId);
 
     @Query("SELECT m.messageId FROM Message m WHERE m.group.groupId = :groupId " +
            "AND m.channel IS NULL " +
            "AND m.deleted = false " +
-           "AND m.sender.userId != :userId " +
-           "AND NOT EXISTS (SELECT mr FROM MessageRead mr WHERE mr.message = m AND mr.user.userId = :userId)")
+           "AND m.senderId != :userId " +
+           "AND NOT EXISTS (SELECT mr FROM MessageRead mr WHERE mr.message = m AND mr.userId = :userId)")
     List<Long> findUnreadMessageIdsByGroupGeneralAndUser(
             @Param("groupId") Long groupId, @Param("userId") Long userId);
 

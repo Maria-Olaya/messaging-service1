@@ -2,12 +2,23 @@ package eafit.gruopChat.messaging.model;
 
 import java.time.LocalDateTime;
 
-import eafit.gruopChat.shared.enums.MessageType;
-import eafit.gruopChat.user.model.User;
-import eafit.gruopChat.group.model.Group;
 import eafit.gruopChat.group.model.Channel;
+import eafit.gruopChat.group.model.Group;
 import eafit.gruopChat.shared.enums.MessageStatus;
-import jakarta.persistence.*;
+import eafit.gruopChat.shared.enums.MessageType;
+import jakarta.persistence.Column;
+import jakarta.persistence.ConstraintMode;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "messages")
@@ -17,34 +28,34 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long messageId;
 
-    // Quién lo envió
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_id", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
-    private User sender;
+    // ID del usuario que envió el mensaje (sin FK a tabla users)
+    @Column(name = "sender_id", nullable = false)
+    private Long senderId;
 
-    // Siempre va a un grupo
+    // Nombre del usuario en el momento de enviar (desnormalizado)
+    @Column(name = "sender_name", nullable = false)
+    private String senderName;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "group_id", nullable = false,
+                foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private Group group;
 
-    // Opcionalmente a un canal dentro del grupo (null = mensaje del grupo general)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "channel_id", foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "channel_id",
+                foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private Channel channel;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MessageType type = MessageType.TEXT;
 
-    // Contenido de texto (null si es imagen/archivo)
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    // URL del archivo/imagen (null si es texto)
     @Column(name = "file_url")
     private String fileUrl;
 
-    // Nombre original del archivo (para mostrar al usuario)
     @Column(name = "file_name")
     private String fileName;
 
@@ -66,8 +77,11 @@ public class Message {
     public Long getMessageId() { return messageId; }
     public void setMessageId(Long messageId) { this.messageId = messageId; }
 
-    public User getSender() { return sender; }
-    public void setSender(User sender) { this.sender = sender; }
+    public Long getSenderId() { return senderId; }
+    public void setSenderId(Long senderId) { this.senderId = senderId; }
+
+    public String getSenderName() { return senderName; }
+    public void setSenderName(String senderName) { this.senderName = senderName; }
 
     public Group getGroup() { return group; }
     public void setGroup(Group group) { this.group = group; }
@@ -95,6 +109,7 @@ public class Message {
 
     public boolean isDeleted() { return deleted; }
     public void setDeleted(boolean deleted) { this.deleted = deleted; }
+
     public MessageStatus getStatus() { return status; }
-    public void setStatus(MessageStatus status) { this.status = status; }   
+    public void setStatus(MessageStatus status) { this.status = status; }
 }

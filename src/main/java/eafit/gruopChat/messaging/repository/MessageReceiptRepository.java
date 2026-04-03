@@ -13,7 +13,7 @@ import eafit.gruopChat.messaging.model.MessageReceipt;
 public interface MessageReceiptRepository extends JpaRepository<MessageReceipt, Long> {
 
     // ¿Ya leyó este usuario este mensaje?
-    Optional<MessageReceipt> findByMessageMessageIdAndUserUserId(Long messageId, Long userId);
+    Optional<MessageReceipt> findByMessageMessageIdAndUserId(Long messageId, Long userId);
 
     // Cuántos usuarios han leído este mensaje
     long countByMessageMessageId(Long messageId);
@@ -25,7 +25,7 @@ public interface MessageReceiptRepository extends JpaRepository<MessageReceipt, 
     @Query("""
         SELECT r.message.messageId
         FROM MessageReceipt r
-        WHERE r.user.userId = :userId
+        WHERE r.userId = :userId
           AND r.message.channel.channelId = :channelId
     """)
     List<Long> findReadMessageIdsByUserAndChannel(

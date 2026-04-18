@@ -59,7 +59,7 @@ public class MessageServiceImpl implements MessageService {
         Group group = groupRepository.findById(request.groupId())
                 .orElseThrow(() -> new GroupNotFoundException(request.groupId()));
 
-        if (!memberRepository.existsByGroupGroupIdAndUserUserId(request.groupId(), senderId)) {
+        if (!memberRepository.existsByGroupGroupIdAndUserId(request.groupId(), senderId)) {
             throw new NotMemberException(senderId, request.groupId());
         }
 

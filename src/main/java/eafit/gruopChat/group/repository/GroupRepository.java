@@ -11,7 +11,7 @@ import eafit.gruopChat.group.model.Group;
 
 public interface GroupRepository extends JpaRepository<Group, Long> {
 
-    @Query("SELECT g FROM Group g JOIN g.members m WHERE m.user.userId = :userId")
+    @Query("SELECT g FROM Group g JOIN g.members m WHERE m.userId = :userId")
     List<Group> findGroupsByMemberUserId(@Param("userId") Long userId);
 
     Optional<Group> findByInviteCode(String inviteCode);

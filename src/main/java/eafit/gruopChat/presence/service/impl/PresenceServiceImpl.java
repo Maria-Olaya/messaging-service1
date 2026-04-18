@@ -8,14 +8,15 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import eafit.gruopChat.grpc.UserGrpcClient;
+import eafit.gruopChat.grpc.UserResponse;
 import eafit.gruopChat.group.repository.GroupMemberRepository;
+import eafit.gruopChat.messaging.service.MessageReceiptService;
 import eafit.gruopChat.presence.dto.PresenceEventDTO;
 import eafit.gruopChat.presence.model.UserPresence;
 import eafit.gruopChat.presence.repository.UserPresenceRepository;
 import eafit.gruopChat.presence.service.PresenceService;
-import eafit.gruopChat.user.model.User;
-import eafit.gruopChat.user.repository.UserRepository;
-import eafit.gruopChat.messaging.service.MessageReceiptService;
+
 @Service
 @Transactional
 public class PresenceServiceImpl implements PresenceService {
@@ -24,18 +25,18 @@ public class PresenceServiceImpl implements PresenceService {
 
     private final UserPresenceRepository presenceRepository;
     private final GroupMemberRepository  memberRepository;
-    private final UserRepository         userRepository;
+    private final UserGrpcClient         userGrpcClient;
     private final SimpMessagingTemplate  messagingTemplate;
-    private final MessageReceiptService receiptService;
+    private final MessageReceiptService  receiptService;
 
     public PresenceServiceImpl(UserPresenceRepository presenceRepository,
-                            GroupMemberRepository memberRepository,
-                            UserRepository userRepository,
-                            SimpMessagingTemplate messagingTemplate,
-                            MessageReceiptService receiptService) {
+                               GroupMemberRepository memberRepository,
+                               UserGrpcClient userGrpcClient,
+                               SimpMessagingTemplate messagingTemplate,
+                               MessageReceiptService receiptService) {
         this.presenceRepository = presenceRepository;
         this.memberRepository   = memberRepository;
-        this.userRepository     = userRepository;
+        this.userGrpcClient     = userGrpcClient;
         this.messagingTemplate  = messagingTemplate;
         this.receiptService     = receiptService;
     }
@@ -43,12 +44,9 @@ public class PresenceServiceImpl implements PresenceService {
     @Override
     public void userConnected(Long userId) {
         onlineUsers.add(userId);
-
-        // Marcar como DELIVERED todos los mensajes SENT en cada grupo del usuario
-        memberRepository.findByUserUserId(userId).forEach(member ->
+        memberRepository.findByUserId(userId).forEach(member ->
             receiptService.markPendingAsDelivered(userId, member.getGroup().getGroupId())
         );
-
         broadcastPresence(userId, true);
     }
 
@@ -57,16 +55,17 @@ public class PresenceServiceImpl implements PresenceService {
         onlineUsers.remove(userId);
 
         LocalDateTime now = LocalDateTime.now();
-        userRepository.findById(userId).ifPresent(user -> {
+        // Solo guardar presence si el usuario existe en el user-service
+        if (userGrpcClient.existsUser(String.valueOf(userId))) {
             UserPresence presence = presenceRepository.findById(userId)
                     .orElseGet(() -> {
                         UserPresence p = new UserPresence();
-                        p.setUser(user);
+                        p.setUserId(userId);   // <-- ver nota abajo
                         return p;
                     });
             presence.setLastSeen(now);
             presenceRepository.save(presence);
-        });
+        }
 
         broadcastPresence(userId, false);
     }
@@ -84,14 +83,14 @@ public class PresenceServiceImpl implements PresenceService {
     }
 
     private void broadcastPresence(Long userId, boolean online) {
-        User user = userRepository.findById(userId).orElse(null);
+        UserResponse user = userGrpcClient.getUserById(String.valueOf(userId)).orElse(null);
         if (user == null) return;
 
         LocalDateTime lastSeen = online ? null : getLastSeen(userId);
         PresenceEventDTO event = new PresenceEventDTO(
-                userId, user.getName(), online, lastSeen);
+                userId, user.getUsername(), online, lastSeen);
 
-        memberRepository.findByUserUserId(userId).forEach(member ->
+        memberRepository.findByUserId(userId).forEach(member ->
             messagingTemplate.convertAndSend(
                 "/topic/presence." + member.getGroup().getGroupId(), event)
         );

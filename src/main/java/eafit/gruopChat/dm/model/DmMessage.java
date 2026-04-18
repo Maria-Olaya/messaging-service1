@@ -1,66 +1,53 @@
 package eafit.gruopChat.dm.model;
-
 import java.time.LocalDateTime;
-
 import eafit.gruopChat.shared.enums.MessageType;
-import eafit.gruopChat.user.model.User;
 import jakarta.persistence.Column;
+import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ConstraintMode;
-import jakarta.persistence.ForeignKey;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.ConstraintMode;
-import jakarta.persistence.ForeignKey;
 import jakarta.persistence.Table;
-
 @Entity
 @Table(name = "dm_messages")
 public class DmMessage {
-
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "message_id")
     private Long messageId;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     private DirectConversation conversation;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_id", nullable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
-    private User sender;
-
+    @Column(name = "sender_id", nullable = false)
+    private Long senderId;
+    @Column(name = "sender_name")
+    private String senderName;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MessageType type = MessageType.TEXT;
-
     @Column(columnDefinition = "TEXT")
     private String content;
-
     @Column(name = "file_url")  private String fileUrl;
     @Column(name = "file_name") private String fileName;
-
     @Column(nullable = false)
     private boolean deleted = false;
-
     @Column(name = "sent_at", nullable = false, updatable = false)
     private LocalDateTime sentAt;
-
     @PrePersist
     protected void onCreate() { this.sentAt = LocalDateTime.now(); }
-
     public Long getMessageId()                        { return messageId; }
     public DirectConversation getConversation()       { return conversation; }
     public void setConversation(DirectConversation c) { this.conversation = c; }
-    public User getSender()                           { return sender; }
-    public void setSender(User s)                     { this.sender = s; }
+    public Long getSenderId()                         { return senderId; }
+    public void setSenderId(Long senderId)            { this.senderId = senderId; }
+    public String getSenderName()                     { return senderName; }
+    public void setSenderName(String n)               { this.senderName = n; }
     public MessageType getType()                      { return type; }
     public void setType(MessageType t)                { this.type = t; }
     public String getContent()                        { return content; }

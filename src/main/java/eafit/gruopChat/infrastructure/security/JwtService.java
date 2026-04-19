@@ -9,20 +9,10 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 @Service
 public class JwtService {
-    @Value("")
+    @Value("${jwt.secret}")
     private String secret;
-    @Value("")
+    @Value("${jwt.expiration-ms}")
     private long expirationMs;
-    public String generateToken(Long userId, String email, String role) {
-        return Jwts.builder()
-                .subject(String.valueOf(userId))
-                .claim("email", email)
-                .claim("role", role)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(getKey())
-                .compact();
-    }
     public Long extractUserId(String token) {
         return Long.valueOf(getClaims(token).getSubject());
     }
